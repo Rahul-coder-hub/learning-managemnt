@@ -7,6 +7,7 @@ import mockData, {
   getVideosBySectionId, getVideoById, getVideosBySubjectId,
   getEnrollment, addEnrollment, getProgress, updateProgress,
   getRefreshToken, addRefreshToken, removeRefreshToken,
+  hashPassword, comparePassword,
   User, Subject, Section, Video, Enrollment, VideoProgress
 } from './mockDb';
 
@@ -24,23 +25,6 @@ const verifyToken = (token: string) => {
   } catch {
     throw new Error('Invalid token');
   }
-};
-
-// Hash password (simple hash for demo)
-const hashPassword = async (password: string) => {
-  // In production, use bcrypt. For demo, use simple hash
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(16);
-};
-
-const comparePassword = async (password: string, hash: string) => {
-  const passwordHash = await hashPassword(password);
-  return passwordHash === hash;
 };
 
 // Mock API responses

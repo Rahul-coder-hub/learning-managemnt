@@ -1,6 +1,21 @@
 // Mock Database for Vercel serverless deployment
 // This replaces the Express backend for serverless environments
 
+// Simple password hash function (consistent across the app)
+export const hashPassword = (password: string): string => {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
+};
+
+export const comparePassword = (password: string, hash: string): boolean => {
+  return hashPassword(password) === hash;
+};
+
 export interface User {
   id: number;
   email: string;
@@ -67,7 +82,7 @@ const mockData = {
     {
       id: 1,
       email: 'test@example.com',
-      password_hash: '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.VTtYA.qGZvKG6G',
+      password_hash: hashPassword('password123'),
       name: 'Test User',
       created_at: new Date(),
       updated_at: new Date()
