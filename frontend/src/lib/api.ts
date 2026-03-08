@@ -1,7 +1,19 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import {
+  mockAuthApi,
+  mockCourseApi,
+  mockVideoApi,
+  mockProgressApi,
+  mockEnrollmentApi
+} from './mockApi';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+// Check if we should use mock API (for Vercel deployment or when backend is unavailable)
+const USE_MOCK_API = typeof window !== 'undefined' && 
+  (window.location.hostname.includes('vercel.app') || 
+   window.location.hostname === 'localhost' && API_URL.includes('localhost:5000'));
 
 // Create axios instance
 const api = axios.create({
@@ -50,13 +62,23 @@ const isTokenExpired = (token: string): boolean => {
   }
 };
 
+const getUserIdFromToken = (): number | null => {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const decoded: any = jwtDecode(token);
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+};
+
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
     
     if (token) {
-      // Check if token is expired and refresh if needed
       if (isTokenExpired(token)) {
         const refreshToken = getRefreshToken();
         if (refreshToken) {
@@ -125,42 +147,92 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   register: (email: string, password: string, name: string) =>
-    api.post('/register', { email, password, name }),
+    USE_MOCK_API ? mockAuthApi.register(email, password, name) : api.post('/register', { email, password, name }),
   
   login: (email: string, password: string) =>
-    api.post('/login', { email, password }),
+    USE_MOCK_API ? mockAuthApi.login(email, password) : api.post('/login', { email, password }),
   
   logout: (refreshToken: string) =>
-    api.post('/logout', { refreshToken }),
+    USE_MOCK_API ? mockAuthApi.logout(refreshToken) : api.post('/logout', { refreshToken }),
   
-  getMe: () => api.get('/me'),
+  getMe: () => {
+    const token = getAccessToken();
+    return USE_MOCK_API && token ? mockAuthApi.getMe(token) : api.get('/me');
+  },
 };
 
 // Courses API
 export const courseApi = {
-  getAllSubjects: () => api.get('/subjects'),
-  getSubject: (subjectId: number) => api.get(`/subjects/${subjectId}`),
-  getSubjectTree: (subjectId: number) => api.get(`/subjects/${subjectId}/tree`),
+  getAllSubjects: () => {
+    const userId = getUserIdFromToken();
+    return USE_MOCK_API ? mockCourseApi.getAllSubjects(userId || undefined) : api.get('/subjects');
+  },
+  getSubject: (subjectId: number) => {
+    const userId = getUserIdFromToken();
+    return USE_MOCK_API ? mockCourseApi.getSubject(subjectId, userId || undefined) : api.get(`/subjects/${subjectId}`);
+  },
+  getSubjectTree: (subjectId: number) => {
+    const userId = getUserIdFromToken();
+    return USE_MOCK_API ? mockCourseApi.getSubjectTree(subjectId, userId || undefined) : api.get(`/subjects/${subjectId}/tree`);
+  },
 };
 
 // Videos API
 export const videoApi = {
-  getVideo: (videoId: number) => api.get(`/videos/${videoId}`),
+  getVideo: (videoId: number) => {
+    const userId = getUserIdFromToken();
+    return USE_MOCK_API ? mockVideoApi.getVideo(videoId, userId || undefined) : api.get(`/videos/${videoId}`);
+  },
 };
 
 // Progress API
 export const progressApi = {
-  updateProgress: (videoId: number, lastPositionSeconds: number, isCompleted?: boolean) =>
-    api.post(`/progress/videos/${videoId}`, { lastPositionSeconds, isCompleted }),
-  getVideoProgress: (videoId: number) => api.get(`/progress/videos/${videoId}`),
-  getCourseProgress: (subjectId: number) => api.get(`/progress/subjects/${subjectId}`),
+  updateProgress: (videoId: number, lastPositionSeconds: number, isCompleted?: boolean) => {
+    const userId = getUserIdFromToken();
+    if (USE_MOCK_API && userId) {
+      return mockProgressApi.updateProgress(videoId, userId, lastPositionSeconds, isCompleted);
+    }
+    return api.post(`/progress/videos/${videoId}`, { lastPositionSeconds, isCompleted });
+  },
+  getVideoProgress: (videoId: number) => {
+    const userId = getUserIdFromToken();
+    if (USE_MOCK_API && userId) {
+      return mockProgressApi.getVideoProgress(videoId, userId);
+    }
+    return api.get(`/progress/videos/${videoId}`);
+  },
+  getCourseProgress: (subjectId: number) => {
+    const userId = getUserIdFromToken();
+    if (USE_MOCK_API && userId) {
+      return mockProgressApi.getCourseProgress(subjectId, userId);
+    }
+    return api.get(`/progress/subjects/${subjectId}`);
+  },
 };
 
 // Enrollment API
 export const enrollmentApi = {
-  enroll: (subjectId: number) => api.post(`/enrollments/${subjectId}`),
-  getMyEnrollments: () => api.get('/enrollments/my'),
-  checkEnrollment: (subjectId: number) => api.get(`/enrollments/${subjectId}/check`),
+  enroll: (subjectId: number) => {
+    const userId = getUserIdFromToken();
+    if (USE_MOCK_API && userId) {
+      return mockEnrollmentApi.enroll(subjectId, userId);
+    }
+    return api.post(`/enrollments/${subjectId}`);
+  },
+  getMyEnrollments: () => {
+    const userId = getUserIdFromToken();
+    if (USE_MOCK_API && userId) {
+      return mockEnrollmentApi.getMyEnrollments(userId);
+    }
+    return api.get('/enrollments/my');
+  },
+  checkEnrollment: (subjectId: number) => {
+    const userId = getUserIdFromToken();
+    if (USE_MOCK_API && userId) {
+      return mockEnrollmentApi.checkEnrollment(subjectId, userId);
+    }
+    return api.get(`/enrollments/${subjectId}/check`);
+  },
 };
 
 export { setTokens, clearTokens, getAccessToken, getRefreshToken };
