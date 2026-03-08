@@ -10,8 +10,8 @@ node_modules/
 .env.production.local
 
 # Next.js
-frontend/.next/
-frontend/out/
+.next/
+out/
 
 # Build outputs
 dist/
@@ -29,3 +29,6 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Backend (for Vercel deployment, we only deploy frontend)
+backend/
